@@ -199,40 +199,51 @@ export default function MyListingsPage() {
                 </button>
               </div>
             </div>
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-900">Categories</h2>
-              <div className="space-y-1">
-                {[
-                  "Vehicles",
-                  "Property Rentals",
-                  "Apparel",
-                  "Classifieds",
-                  "Electronics",
-                  "Entertainment",
-                  "Family",
-                  "Free Stuff",
-                  "Garden & Outdoor",
-                  "Hobbies",
-                  "Home Goods",
-                  "Home Improvement",
-                  "Home Sales",
-                  "Musical Instruments",
-                  "Office Supplies",
-                  "Pet Supplies",
-                  "Sporting Goods",
-                  "Toys & Games",
-                  "Buy and sell groups",
-                ].map((category) => (
-                  <Link
-                    key={category}
-                    href={`/category/${category.toLowerCase().replace(/\s+/g, "-")}`}
-                    className="block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 text-gray-700"
-                  >
-                    {category}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            {/* Categories */}
+<div className="space-y-3">
+  <h2 className="text-lg font-semibold text-gray-900">Categories</h2>
+  <div className="space-y-1">
+    {[
+      "All",
+      "Vehicles",
+      "Property Rentals",
+      "Apparel",
+      "Classifieds",
+      "Electronics",
+      "Entertainment",
+      "Family",
+      "Free Stuff",
+      "Garden & Outdoor",
+      "Hobbies",
+      "Home Goods",
+      "Home Improvement",
+      "Home Sales",
+      "Musical Instruments",
+      "Office Supplies",
+      "Pet Supplies",
+      "Sporting Goods",
+      "Toys & Games",
+      "Buy and sell groups",
+    ].map((category, index) => {
+      const isAll = category === "All"
+      const href = isAll
+        ? "/" // Homepage for "All"
+        : `/category/${category.toLowerCase().replace(/\s+/g, "-")}`
+
+      return (
+        <Link
+          key={category}
+          href={href}
+          className={`block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 "bg-blue-50 text-gray-600 font-medium" : "text-gray-700"
+          `}
+        >
+          {category}
+        </Link>
+      )
+    })}
+  </div>
+</div>
+
           </div>
         </aside>
 
