@@ -19,53 +19,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import Link from "next/link"
 
-async function getListings(status: "active" | "sold") {
-  // Simulated API call - in a real app, this would fetch from an API
-  const listings = {
-    active: [
-      {
-        id: "1",
-        title: "iPhone 14 Pro Max - Excellent Condition",
-        price: 899,
-        location: "San Francisco, CA",
-        images: ["/iphone-14-pro-max.png"],
-        profiles: { display_name: "Jane S." },
-        condition: "like-new",
-        created_at: "2024-01-15",
-        views: 45,
-        messages: 3,
-        is_free: false,
-      },
-      {
-        id: "2",
-        title: "MacBook Air M2 - Perfect for Students",
-        price: 1200,
-        location: "San Francisco, CA",
-        images: ["/macbook-air-laptop.png"],
-        profiles: { display_name: "Jane S." },
-        condition: "good",
-        created_at: "2024-01-14",
-        views: 23,
-        messages: 1,
-        is_free: false,
-      },
-    ],
-    sold: [
-      {
-        id: "3",
-        title: "Gaming Headset - Excellent Sound",
-        price: 75,
-        location: "San Francisco, CA",
-        images: ["/gaming-headset-audio.png"],
-        profiles: { display_name: "Jane S." },
-        condition: "good",
-        created_at: "2024-01-10",
-        sold_at: "2024-01-12",
-        is_free: false,
-      },
-    ],
-  }
-  return listings[status]
+async function fetchListingsFromApi() {
+  // Fetch all listings from your API
+  const res = await fetch("/api/listings", { cache: "no-store" })
+  if (!res.ok) throw new Error("Failed to fetch listings")
+  return res.json()
 }
 
 export default function MyListingsPage() {
@@ -78,10 +36,16 @@ export default function MyListingsPage() {
   useEffect(() => {
     async function fetchListings() {
       setLoading(true)
-      const active = await getListings("active")
-      const sold = await getListings("sold")
-      setActiveListings(active)
-      setSoldListings(sold)
+      try {
+        const allListings = await fetchListingsFromApi()
+        // Separate active and sold listings based on a property (e.g., sold_at)
+        setActiveListings(allListings.filter((l: any) => !l.sold_at))
+        setSoldListings(allListings.filter((l: any) => l.sold_at))
+      } catch (err) {
+        // Optionally handle error
+        setActiveListings([])
+        setSoldListings([])
+      }
       setLoading(false)
     }
     fetchListings()
@@ -206,7 +170,7 @@ export default function MyListingsPage() {
                       />
                     </svg>
                   </div>
-                  <span className="text-gray-700">Choose listing type</span>
+                  <span className="text-gray-700">Create new listing</span>
                 </Link>
                 <Link href="/my-listings" className="flex items-center gap-3 p-2 bg-blue-50 text-blue-600 rounded-lg">
                   <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
@@ -276,14 +240,14 @@ export default function MyListingsPage() {
           <div className="max-w-4xl">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Listings</h2>
-              <div className="relative max-w-md">
+              {/* <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Search your listings..."
                   className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
-              </div>
+              </div> */}
             </div>
 
             <Tabs defaultValue="active" className="space-y-6">

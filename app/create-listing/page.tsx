@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,43 +10,100 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+
+const supabase = createClient()
 
 export default function CreateListingPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([])
   const [formData, setFormData] = useState({
     title: "",
-    category: "",
+    category: "", // will store category.id (UUID)
     price: "",
     location: "Palo Alto, CA",
     email: "",
     description: "",
+    condition: "new",
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const categories = [
-    "Vehicles",
-    "Property Rentals",
-    "Apparel",
-    "Classifieds",
-    "Electronics",
-    "Entertainment",
-    "Family",
-    "Free Stuff",
-    "Garden & Outdoor",
-    "Hobbies",
-    "Home Goods",
-    "Home Improvement",
-    "Home Sales",
-    "Musical Instruments",
-    "Office Supplies",
-    "Pet Supplies",
-    "Sporting Goods",
-    "Toys & Games",
-  ]
+  // Fetch categories on component mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data, error } = await supabase.from('categories').select('id, name, slug')
+        console.log('Categories fetched:', { data, error }) // Debug log
+        
+        // Add detailed logging for each category
+        if (data) {
+          console.log('Category details:')
+          data.forEach((cat, index) => {
+            console.log(`${index + 1}. ID: ${cat.id}, Name: ${cat.name}, Slug: ${cat.slug}`)
+          })
+        }
+        
+        if (error) {
+          console.error('Error fetching categories:', error)
+          toast({
+            title: "Error",
+            description: "Failed to load categories. Please refresh the page.",
+            variant: "destructive",
+          })
+          return
+        }
+        if (!data || data.length === 0) {
+          console.warn('No categories found in database')
+          toast({
+            title: "Warning",
+            description: "No categories available. Please contact support.",
+            variant: "destructive",
+          })
+          return
+        }
+        setCategories(data)
+      } catch (err) {
+        console.error('Unexpected error fetching categories:', err)
+        toast({
+          title: "Error",
+          description: "Failed to load categories. Please try again later.",
+          variant: "destructive",
+        })
+      }
+    }
+    fetchCategories()
+  }, [toast])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "Image size must be less than 5MB",
+          variant: "destructive",
+        })
+        return
+      }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        toast({
+          title: "Error",
+          description: "Only JPEG, PNG, or WebP images are allowed",
+          variant: "destructive",
+        })
+        return
+      }
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -54,7 +111,84 @@ export default function CreateListingPage() {
     setIsLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Validate required fields
+      if (!formData.title || !formData.description || !formData.category || !formData.email) {
+        throw new Error("Please fill in all required fields: title, description, category, and email")
+      }
+
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(formData.email)) {
+        throw new Error("Invalid email format")
+      }
+
+      // Validate price
+      if (formData.price && parseFloat(formData.price) < 0) {
+        throw new Error("Price cannot be negative")
+      }
+
+      // Validate category - check if the selected category ID exists
+      const selectedCategory = categories.find((cat) => cat.id === formData.category)
+      if (!selectedCategory) {
+        console.error('Selected category not found:', {
+          selectedCategoryId: formData.category,
+          availableCategories: categories
+        })
+        throw new Error("Invalid category selected")
+      }
+      
+      console.log('Selected category:', selectedCategory)
+
+      // Handle image upload if present
+      let imageUrl = null
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop()
+        const fileName = `public/${Date.now()}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('listing-images')
+          .upload(fileName, imageFile)
+
+        if (uploadError) {
+          console.error('Image upload error:', uploadError)
+          throw new Error(`Image upload failed: ${uploadError.message}`)
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('listing-images')
+          .getPublicUrl(fileName)
+        
+        imageUrl = publicUrl
+      }
+
+      // Send data to API route
+      const requestBody = {
+        title: formData.title,
+        description: formData.description,
+        price: formData.price ? Number(formData.price) : null,
+        category_id: formData.category, // Now sending the UUID
+        location: formData.location,
+        email: formData.email,
+        condition: formData.condition,
+        images: imageUrl ? [imageUrl] : [],
+        is_free: !formData.price || parseFloat(formData.price) === 0,
+        tags: [],
+      }
+      
+      console.log('Sending to API:', requestBody)
+      
+      const response = await fetch("/api/listings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json()
+        console.error('API error:', error)
+        throw new Error(error || "Failed to create listing")
+      }
 
       toast({
         title: "Listing Created!",
@@ -62,10 +196,11 @@ export default function CreateListingPage() {
       })
 
       router.push("/")
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Submit error:', error)
       toast({
         title: "Error",
-        description: "Failed to create listing. Please try again.",
+        description: error.message || "Failed to create listing. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -111,9 +246,22 @@ export default function CreateListingPage() {
               <div>
                 <Label className="text-sm font-medium text-gray-700 mb-3 block">Photos</Label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
-                  <Upload className="h-8 w-8 mx-auto mb-3 text-gray-400" />
-                  <p className="text-sm text-gray-600 mb-2">Add photos</p>
-                  <p className="text-xs text-gray-500">JPEG, PNG, or WebP (max 5MB)</p>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    ref={fileInputRef}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center"
+                  >
+                    <Upload className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+                    <p className="text-sm text-gray-600 mb-2">Add photos</p>
+                    <p className="text-xs text-gray-500">JPEG, PNG, or WebP (max 5MB)</p>
+                  </button>
                 </div>
               </div>
 
@@ -137,12 +285,35 @@ export default function CreateListingPage() {
                 <Label className="text-sm font-medium text-gray-700">Category *</Label>
                 <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
                   <SelectTrigger className="mt-1 border-gray-300">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder={categories.length ? "Select a category" : "Loading categories..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category.toLowerCase().replace(/\s+/g, "-")}>
-                        {category}
+                    {categories.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        No categories available
+                      </SelectItem>
+                    ) : (
+                      categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Condition */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Condition *</Label>
+                <Select value={formData.condition} onValueChange={(value) => handleInputChange("condition", value)}>
+                  <SelectTrigger className="mt-1 border-gray-300">
+                    <SelectValue placeholder="Select condition" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['new', 'like-new', 'good', 'fair', 'poor'].map((cond) => (
+                      <SelectItem key={cond} value={cond}>
+                        {cond.charAt(0).toUpperCase() + cond.slice(1)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -214,7 +385,7 @@ export default function CreateListingPage() {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || categories.length === 0}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5"
               >
                 {isLoading ? "Creating..." : "Create Listing"}
@@ -228,10 +399,14 @@ export default function CreateListingPage() {
 
             {/* Preview Image */}
             <div className="aspect-video bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
-              <div className="text-center text-gray-400">
-                <Upload className="h-12 w-12 mx-auto mb-2" />
-                <p className="text-sm">Photo preview</p>
-              </div>
+              {imagePreview ? (
+                <img src={imagePreview} alt="Preview" className="object-cover w-full h-full rounded-lg" />
+              ) : (
+                <div className="text-center text-gray-400">
+                  <Upload className="h-12 w-12 mx-auto mb-2" />
+                  <p className="text-sm">Photo preview</p>
+                </div>
+              )}
             </div>
 
             {/* Preview Details */}

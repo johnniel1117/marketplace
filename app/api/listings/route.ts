@@ -21,9 +21,8 @@ export async function GET(request: NextRequest) {
       .from("listings")
       .select(`
         *,
-        categories(name, slug),
-        profiles(display_name, avatar_url)
-      `)
+        categories(name, slug)
+      `) // Removed profiles join
       .eq("status", "active")
       .order("created_at", { ascending: false })
 
@@ -75,23 +74,41 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const body = await request.json()
-    const { title, description, price, category_id, location, condition, images, tags, is_free } = body
+    const { title, description, price, category_id, location, email, condition, images, tags, is_free } = body
+
+    // Log the incoming request body for debugging
+    console.log('POST /api/listings body:', body)
 
     // Validate required fields
-    if (!title || !description || !category_id) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!title || !description || !category_id || !email) {
+      return NextResponse.json({ error: "Missing required fields: title, description, category_id, or email" }, { status: 400 })
     }
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
+    }
+
+    // Validate price
+    if (price !== null && price < 0) {
+      return NextResponse.json({ error: "Price cannot be negative" }, { status: 400 })
+    }
+
+    // TEMPORARY WORKAROUND: Skip server-side category validation
+    // since the frontend already validates the category exists
+    console.log('Skipping server-side category validation for:', category_id)
+    
+    // Optional: Basic UUID format validation
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(category_id)) {
+      console.error('Invalid UUID format for category_id:', category_id)
+      return NextResponse.json({ error: `Invalid category ID format: ${category_id}` }, { status: 400 })
+    }
+
+    // Get user (optional)
+    const { data: { user } } = await supabase.auth.getUser()
 
     const { data: listing, error } = await supabase
       .from("listings")
@@ -99,29 +116,33 @@ export async function POST(request: NextRequest) {
         title,
         description,
         price: is_free ? null : price,
-        category_id,
-        user_id: user.id,
+        category_id: category_id,
+        user_id: user?.id || null,
         location,
-        condition,
+        email,
+        condition: condition || 'new',
+        status: 'active',
         images: images || [],
         tags: tags || [],
         is_free: is_free || false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       })
       .select(`
         *,
-        categories(name, slug),
-        profiles(display_name, avatar_url)
-      `)
+        categories(name, slug)
+      `) // Removed profiles join
       .single()
 
     if (error) {
       console.error("Error creating listing:", error)
-      return NextResponse.json({ error: "Failed to create listing" }, { status: 500 })
+      return NextResponse.json({ error: `Failed to create listing: ${error.message}` }, { status: 500 })
     }
 
     return NextResponse.json(listing, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

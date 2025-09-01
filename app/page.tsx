@@ -2,20 +2,22 @@ import { MessageCircle, User, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
+
+const supabase = createClient()
 
 async function getFeaturedListings() {
-  return [
-    {
-      id: "1",
-      title: "Orange Bike for sale",
-      price: 120,
-      location: "Palo Alto, CA",
-      images: ["/mountain-bike-trail.png"],
-      profiles: { display_name: "John D." },
-      condition: "good",
-      is_free: false,
-    },
-  ]
+  // Fetch latest 8 listings from Supabase
+  const { data, error } = await supabase
+    .from("listings")
+    .select("id,title,price,location,images,condition,is_free")
+    .order("created_at", { ascending: false })
+    .limit(8)
+  if (error) {
+    console.error("Error fetching featured listings:", error)
+    return []
+  }
+  return data || []
 }
 
 export default async function HomePage() {
@@ -62,7 +64,7 @@ export default async function HomePage() {
                       />
                     </svg>
                   </div>
-                  <span className="text-gray-700">Choose listing type</span>
+                  <span className="text-gray-700">Create new listing</span>
                 </Link>
                 <Link href="/my-listings" className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded-lg">
                   <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
@@ -93,89 +95,100 @@ export default async function HomePage() {
             </div>
 
             {/* Categories */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-900">Categories</h2>
-              <div className="space-y-1">
-                {[
-                  "Vehicles",
-                  "Property Rentals",
-                  "Apparel",
-                  "Classifieds",
-                  "Electronics",
-                  "Entertainment",
-                  "Family",
-                  "Free Stuff",
-                  "Garden & Outdoor",
-                  "Hobbies",
-                  "Home Goods",
-                  "Home Improvement",
-                  "Home Sales",
-                  "Musical Instruments",
-                  "Office Supplies",
-                  "Pet Supplies",
-                  "Sporting Goods",
-                  "Toys & Games",
-                  "Buy and sell groups",
-                ].map((category, index) => (
-                  <Link
-                    key={category}
-                    href={`/category/${category.toLowerCase().replace(/\s+/g, "-")}`}
-                    className={`block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 ${
-                      index === 4 ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
-                    }`}
-                  >
-                    {category}
-                  </Link>
-                ))}
-              </div>
-            </div>
+<div className="space-y-3">
+  <h2 className="text-lg font-semibold text-gray-900">Categories</h2>
+  <div className="space-y-1">
+    {[
+      "All",
+      "Vehicles",
+      "Property Rentals",
+      "Apparel",
+      "Classifieds",
+      "Electronics",
+      "Entertainment",
+      "Family",
+      "Free Stuff",
+      "Garden & Outdoor",
+      "Hobbies",
+      "Home Goods",
+      "Home Improvement",
+      "Home Sales",
+      "Musical Instruments",
+      "Office Supplies",
+      "Pet Supplies",
+      "Sporting Goods",
+      "Toys & Games",
+      "Buy and sell groups",
+    ].map((category, index) => {
+      const isAll = category === "All"
+      const href = isAll
+        ? "/" // Homepage for "All"
+        : `/category/${category.toLowerCase().replace(/\s+/g, "-")}`
+
+      return (
+        <Link
+          key={category}
+          href={href}
+          className={`block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 ${
+            index === 0 ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
+          }`}
+        >
+          {category}
+        </Link>
+      )
+    })}
+  </div>
+</div>
+
           </div>
         </aside>
 
-        <main className="flex-1 p-6">
-          <div className="max-w-4xl">
-            {/* Search bar */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Today's picks</h2>
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input placeholder="Search listings..." className="pl-10 bg-white border-gray-300" />
-                <Button className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-1.5 text-sm">
-                  Search
-                </Button>
-              </div>
-            </div>
+<main className="flex-1 p-6">
+  <div className="max-w-7xl mx-auto">
+    {/* Title */}
+    <div className="mb-6 flex items-center justify-between">
+      <h2 className="text-2xl font-bold text-gray-900">Today's picks</h2>
+      {/* <Link href="/listings" className="text-blue-600 text-sm font-medium hover:underline">
+        See all
+      </Link> */}
+    </div>
 
-            {/* Featured listing */}
-            <div className="grid gap-4">
-              {featuredListings.map((listing) => (
-                <Link
-                  key={listing.id}
-                  href={`/listing/${listing.id}`}
-                  className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className="flex">
-                    <div className="w-48 h-48 flex-shrink-0">
-                      <img
-                        src={listing.images[0] || "/placeholder.svg?height=192&width=192"}
-                        alt={listing.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="p-4 flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{listing.title}</h3>
-                      <p className="text-lg font-semibold text-gray-900 mb-2">${listing.price}</p>
-                      <div className="text-sm text-gray-600">
-                        <p>Listed just now</p>
-                        <p>{listing.location}</p>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </main>
+    {/* Grid */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+  {featuredListings.map((listing) => (
+    <Link
+      key={listing.id}
+      href={`/listing/${listing.id}`}
+      className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
+    >
+      {/* Image */}
+      <div className="relative w-full aspect-[4/3]">
+        <img
+          src={listing.images?.[0] || "/placeholder.svg?height=300&width=300"}
+          alt={listing.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+        />
+      </div>
+
+      {/* Content */}
+      <div className="p-4 border-t border-gray-100">
+        <h3 className="text-base font-semibold text-gray-900 truncate mb-1">
+          {listing.title}
+        </h3>
+        <p className="text-sm font-bold text-gray-800 mb-1">
+          {listing.is_free ? "Free" : `₱${listing.price}`}
+        </p>
+        <p className="text-xs text-gray-500 truncate">{listing.location}</p>
+        <p className="text-xs text-gray-400 mt-1">Listed just now</p>
+      </div>
+    </Link>
+  ))}
+</div>
+
+  </div>
+</main>
+
+
       </div>
     </div>
   )
