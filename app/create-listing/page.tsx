@@ -243,27 +243,29 @@ export default function CreateListingPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Photos Section */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">Photos</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleImageChange}
-                    ref={fileInputRef}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center"
-                  >
-                    <Upload className="h-8 w-8 mx-auto mb-3 text-gray-400" />
-                    <p className="text-sm text-gray-600 mb-2">Add photos</p>
-                    <p className="text-xs text-gray-500">JPEG, PNG, or WebP (max 5MB)</p>
-                  </button>
-                </div>
-              </div>
+<div>
+  <Label className="text-sm font-medium text-gray-700 mb-3 block">Photos</Label>
+  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gray-50 
+                  flex items-center justify-center text-center">
+    <input
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      onChange={handleImageChange}
+      ref={fileInputRef}
+      className="hidden"
+    />
+    <button
+      type="button"
+      onClick={() => fileInputRef.current?.click()}
+      className="flex flex-col items-center justify-center"
+    >
+      <Upload className="h-8 w-8 mb-3 text-gray-400" />
+      <p className="text-sm text-gray-600 mb-2">Add photos</p>
+      <p className="text-xs text-gray-500">JPEG, PNG, or WebP (max 5MB)</p>
+    </button>
+  </div>
+</div>
+
 
               {/* Title */}
               <div>
