@@ -1,27 +1,29 @@
 import { MessageCircle, User, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/server"
+import ListingsGrid from "./ListingGrid"
+import { Listing } from "@/lib/types"
 
-const supabase = createClient()
-
-async function getFeaturedListings() {
-  // Fetch latest 8 listings from Supabase
+async function getFeaturedListings(): Promise<Listing[]> {
+  const supabase = await createClient()
+  
   const { data, error } = await supabase
     .from("listings")
-    .select("id,title,price,location,images,condition,is_free")
+    .select("id,title,description,price,location,images,condition,is_free,status")
+    .eq('status', 'active')
     .order("created_at", { ascending: false })
     .limit(8)
+  
   if (error) {
     console.error("Error fetching featured listings:", error)
     return []
   }
+  
   return data || []
 }
 
 export default async function HomePage() {
-  const featuredListings = await getFeaturedListings()
+  const featuredListings: Listing[] = await getFeaturedListings()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -50,7 +52,6 @@ export default async function HomePage() {
       <div className="flex">
         <aside className="w-80 bg-white border-r border-gray-200 min-h-screen p-4">
           <div className="space-y-6">
-            {/* Create new listing section */}
             <div className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-900">Create new listing</h2>
               <div className="space-y-2">
@@ -94,101 +95,54 @@ export default async function HomePage() {
               </div>
             </div>
 
-            {/* Categories */}
-<div className="space-y-3">
-  <h2 className="text-lg font-semibold text-gray-900">Categories</h2>
-  <div className="space-y-1">
-    {[
-      "All",
-      "Vehicles",
-      "Property Rentals",
-      "Apparel",
-      "Classifieds",
-      "Electronics",
-      "Entertainment",
-      "Family",
-      "Free Stuff",
-      "Garden & Outdoor",
-      "Hobbies",
-      "Home Goods",
-      "Home Improvement",
-      "Home Sales",
-      "Musical Instruments",
-      "Office Supplies",
-      "Pet Supplies",
-      "Sporting Goods",
-      "Toys & Games",
-      "Buy and sell groups",
-    ].map((category, index) => {
-      const isAll = category === "All"
-      const href = isAll
-        ? "/" // Homepage for "All"
-        : `/category/${category.toLowerCase().replace(/\s+/g, "-")}`
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-gray-900">Categories</h2>
+              <div className="space-y-1">
+                {[
+                  "All",
+                  "Vehicles",
+                  "Property Rentals",
+                  "Apparel",
+                  "Classifieds",
+                  "Electronics",
+                  "Entertainment",
+                  "Family",
+                  "Free Stuff",
+                  "Garden & Outdoor",
+                  "Hobbies",
+                  "Home Goods",
+                  "Home Improvement",
+                  "Home Sales",
+                  "Musical Instruments",
+                  "Office Supplies",
+                  "Pet Supplies",
+                  "Sporting Goods",
+                  "Toys & Games",
+                  "Buy and sell groups",
+                ].map((category, index) => {
+                  const isAll = category === "All"
+                  const href = isAll
+                    ? "/" // Homepage for "All"
+                    : `/category/${category.toLowerCase().replace(/\s+/g, "-")}`
 
-      return (
-        <Link
-          key={category}
-          href={href}
-          className={`block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 ${
-            index === 0 ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
-          }`}
-        >
-          {category}
-        </Link>
-      )
-    })}
-  </div>
-</div>
-
+                  return (
+                    <Link
+                      key={category}
+                      href={href}
+                      className={`block px-3 py-2 text-sm rounded-lg hover:bg-gray-100 ${
+                        index === 0 ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"
+                      }`}
+                    >
+                      {category}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </aside>
 
-<main className="flex-1 p-6">
-  <div className="max-w-7xl mx-auto">
-    {/* Title */}
-    <div className="mb-6 flex items-center justify-between">
-      <h2 className="text-2xl font-bold text-gray-900">Today's picks</h2>
-      {/* <Link href="/listings" className="text-blue-600 text-sm font-medium hover:underline">
-        See all
-      </Link> */}
-    </div>
-
-    {/* Grid */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-  {featuredListings.map((listing) => (
-    <Link
-      key={listing.id}
-      href={`/listing/${listing.id}`}
-      className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
-    >
-      {/* Image */}
-      <div className="relative w-full aspect-[4/3]">
-        <img
-          src={listing.images?.[0] || "/placeholder.svg?height=300&width=300"}
-          alt={listing.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-        />
-      </div>
-
-      {/* Content */}
-      <div className="p-4 border-t border-gray-100">
-        <h3 className="text-base font-semibold text-gray-900 truncate mb-1">
-          {listing.title}
-        </h3>
-        <p className="text-sm font-bold text-gray-800 mb-1">
-          {listing.is_free ? "Free" : `₱${listing.price}`}
-        </p>
-        <p className="text-xs text-gray-500 truncate">{listing.location}</p>
-        <p className="text-xs text-gray-400 mt-1">Listed just now</p>
-      </div>
-    </Link>
-  ))}
-</div>
-
-  </div>
-</main>
-
-
+        <ListingsGrid initialListings={featuredListings} />
       </div>
     </div>
   )
